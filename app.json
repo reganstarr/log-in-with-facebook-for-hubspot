@@ -6,10 +6,10 @@
     "THANK_YOU_PAGE_URL": {
       "required": "true"
     },
-    "LINKEDIN_APP_CLIENT_ID": {
+    "FACEBOOK_APP_ID": {
       "required": "true"
     },
-    "LINKEDIN_APP_CLIENT_SECRET": {
+    "FACEBOOK_APP_SECRET": {
       "required": "true"
     }
   }

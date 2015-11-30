@@ -2,8 +2,9 @@
 
 $hubspotApiKey = getenv('HUBSPOT_API_KEY');
 $thankYouPageUrl = getenv('THANK_YOU_PAGE_URL');
-$linkedinClientId = getenv('LINKEDIN_APP_CLIENT_ID');
-$linkedinClientSecret = getenv('LINKEDIN_APP_CLIENT_SECRET');
+$facebookAppId = getenv('FACEBOOK_APP_ID');
+$facebookAppSecret = getenv('FACEBOOK_APP_SECRET');
+
 
 
 
@@ -17,32 +18,26 @@ elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED
 }
 $REQUEST_PROTOCOL = $isSecure ? 'https' : 'http';
 
-
-//determine and encode the url of this file
+//determine the url of this file
 $urlOfThisFile = $REQUEST_PROTOCOL . "://" . $_SERVER['HTTP_HOST'] . strtok($_SERVER["REQUEST_URI"],'?');
-$encodedUrlOfThisFile = urlencode($urlOfThisFile);
+
 
 
 
 if(!isset($_GET['code'])){
-	
-	$randomStateValue = mt_rand(100000, 999999);
-	
-	header ("Location: https://www.linkedin.com/uas/oauth2/authorization?response_type=code&client_id=$linkedinClientId&redirect_uri=$encodedUrlOfThisFile&state=$randomStateValue&scope=r_basicprofile%20r_emailaddress");
-	exit;	
+	header ("Location: https://www.facebook.com/dialog/oauth?client_id=$facebookAppId&redirect_uri=$urlOfThisFile&scope=public_profile,email");
+	exit;
 }
+
 
 
 
 $code = $_GET['code'];
 
-$url = "https://www.linkedin.com/uas/oauth2/accessToken?grant_type=authorization_code&code=$code&redirect_uri=$encodedUrlOfThisFile&client_id=$linkedinClientId&client_secret=$linkedinClientSecret";
+$url = "https://graph.facebook.com/v2.4/oauth/access_token?client_id=$facebookAppId&redirect_uri=$urlOfThisFile&client_secret=$facebookAppSecret&code=$code";
 
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_HTTPHEADER, array ("Content-Type: application/x-www-form-urlencoded"));
-curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-curl_setopt($ch, CURLOPT_POSTFIELDS, "");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $responseJson = curl_exec($ch);
 curl_close($ch);
@@ -53,38 +48,21 @@ $accessToken = $responseArray['access_token'];
 
 
 
-$url = "https://api.linkedin.com/v1/people/~:(first-name,last-name,email-address,num-connections,summary)?format=json";
+
+$url = "https://graph.facebook.com/v2.4/me?access_token=$accessToken&fields=first_name,last_name,email";
 
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_HTTPHEADER, array ("Authorization: Bearer $accessToken"));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $responseJson = curl_exec($ch);
 curl_close($ch);
 
 $responseArray = json_decode($responseJson, true);
 
-$firstName = "";
-$lastName = "";
-$email = "";
-$numberOfLinkedinConnections = "";
-$linkedinBio = "";
+$firstName = $responseArray['first_name'];
+$lastName = $responseArray['last_name'];
+$email = $responseArray['email'];
 
-if(isset($responseArray['firstName'])){
-	$firstName = $responseArray['firstName'];
-}
-if(isset($responseArray['lastName'])){
-	$lastName = $responseArray['lastName'];
-}
-if(isset($responseArray['emailAddress'])){
-	$email = $responseArray['emailAddress'];
-}
-if(isset($responseArray['numConnections'])){
-	$numberOfLinkedinConnections = $responseArray['numConnections'];
-}
-if(isset($responseArray['summary'])){
-	$linkedinBio = $responseArray['summary'];
-}
 
 
 
@@ -101,21 +79,13 @@ $propertiesArray = array(
 		array(
 			'property' => 'lastname',
 			'value' => $lastName
-		),
-		array(
-			'property' => 'linkedinconnections',
-			'value' => $numberOfLinkedinConnections
-		),
-		array(
-			'property' => 'linkedinbio',
-			'value' => $linkedinBio
 		)
 	)
 );
 
 $propertiesJson = json_encode($propertiesArray);
 
-$url = "https://api.hubapi.com/contacts/v1/contact/createOrUpdate/email/$email/?hapikey=$hubspotApiKey";
+$url = "https://api.hubapi.com/contacts/v1/contact?hapikey=$hubspotApiKey";
 
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
